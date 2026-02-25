@@ -57,3 +57,9 @@ class EDF:
                 for start, end in zip(starts, ends)
             ]
             self.seizures = seizures
+
+    def get_seizure_data(self) -> np.ndarray:
+        seizures = np.array(
+            [self.data[:, seg.start : seg.end] for seg in self.seizures]
+        )
+        return seizures

@@ -91,17 +91,20 @@ def get_epochs(
             Defaults to 5.
 
     Returns:
-        list[np.ndarray]: List of epoch arrays, each with shape
-            (n_channels, epoch_size).
+        np.ndarray: Epochs array with shape (n_epochs, n_channels, epoch_size).
     """
     if signal.ndim != 2:
         raise ValueError("Signal must have shape (n_channels, n_samples)")
 
-    n_samples = signal.shape[1]
+    n_channels, n_samples = signal.shape
     epoch_size = sample_rate * epoch_duration
-
     n_epochs = n_samples // epoch_size
 
-    epochs = [signal[:, i * epoch_size : (i + 1) * epoch_size] for i in range(n_epochs)]
+    if n_epochs == 0:
+        return np.empty((0, n_channels, epoch_size), dtype=signal.dtype)
 
+    valid_samples = n_epochs * epoch_size
+    truncated_signal = signal[:, :valid_samples]
+
+    epochs = truncated_signal.reshape(n_channels, n_epochs, epoch_size).swapaxes(0, 1)
     return epochs
