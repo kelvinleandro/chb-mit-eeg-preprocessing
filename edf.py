@@ -19,10 +19,9 @@ class EDF:
             self._load_seizures()
 
     def _read(self) -> None:
-        with read_raw_edf(self.path, preload=False) as raw:
+        with read_raw_edf(self.path, preload=False, verbose=0) as raw:
             self.sample_rate = int(raw.info["sfreq"])
             self.channel_names = raw.ch_names
-            print(self.channel_names)
             if "T8-P8-0" in self.channel_names:
                 # Some files there are 2 'T8-P8'
                 self.channel_names[self.channel_names.index("T8-P8-0")] = "T8-P8"
@@ -58,8 +57,5 @@ class EDF:
             ]
             self.seizures = seizures
 
-    def get_seizure_data(self) -> np.ndarray:
-        seizures = np.array(
-            [self.data[:, seg.start : seg.end] for seg in self.seizures]
-        )
-        return seizures
+    def get_seizure_data(self) -> list[np.ndarray]:
+        return [self.data[:, seg.start : seg.end] for seg in self.seizures]

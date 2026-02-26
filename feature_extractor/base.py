@@ -39,7 +39,7 @@ class FeatureExtractor(ABC):
         if isinstance(signals, np.ndarray):
             if signals.ndim == 2:
                 signals = [signals]
-            else:
+            elif signals.ndim != 3:
                 raise ValueError(
                     "'signals' must be a list of 2D numpy arrays or a 3D numpy array with shape (n_signals, n_channels, n_samples)."
                 )

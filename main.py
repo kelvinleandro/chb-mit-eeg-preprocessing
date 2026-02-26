@@ -1,8 +1,33 @@
 import logging
 import os
+import sys
+import warnings
 from datetime import datetime
+from pathlib import Path
+import numpy as np
+from time import time
+
+from constants import PATH_ROOT_DATASET, RECORD_WITH_SEIZURES
+from edf import EDF
+from signals import get_epochs, get_pre_ictal_segment
+from feature_extractor.covariance import CovarianceExtractor
+
+warnings.filterwarnings(
+    "ignore", message="Channel names are not unique*", category=RuntimeWarning
+)
+
+if len(sys.argv) > 1:
+    PATH_ROOT_DATASET = Path(sys.argv[1])
+
 
 os.makedirs("out", exist_ok=True)
+path_data = Path("out/data")
+os.makedirs(path_data, exist_ok=True)
+
+# clean up all .npz files
+for file in path_data.iterdir():
+    if file.suffix == ".npz":
+        os.remove(file)
 
 file_name = datetime.now().strftime("log_%Y-%m-%d.log")
 path_log = os.path.join("out", file_name)
@@ -15,9 +40,116 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
+OFFSET_SECONDS = 5 * 60  # 5 min
+MULTIPLIER = 3
+EPOCH_DURATION = 5  # seconds
+
 
 def main():
-    logger.info("Hello from eeg-preprocessing!")
+    start_time = time()
+    for record in RECORD_WITH_SEIZURES:
+        # if record != "chb04/chb04_28.edf":
+        #     continue
+        patient = record.split("/")[0]
+        out_patient_path = path_data / f"{patient}.npz"
+
+        path_edf = PATH_ROOT_DATASET / record
+
+        if not path_edf.exists():
+            logger.warning(f"'{path_edf}' does not exist. Skipping...")
+            continue
+
+        logger.info(f"PROCESSING {record}")
+
+        try:
+            edf = EDF(path_edf, with_seizures=True)
+        except Exception as e:
+            logging.error(e)
+            continue
+
+        if len(edf.seizures) == 0:
+            logger.info(f"{record} has no seizures. Skipping...")
+            continue
+
+        raw_seizures_data = edf.get_seizure_data()
+        logger.info(f"{len(raw_seizures_data)} seizure segments found.")
+
+        # Getting pre-ictal segments
+        raw_pre_ictal = [
+            get_pre_ictal_segment(
+                edf.data,
+                seg.start,
+                seg.end,
+                edf.sample_rate,
+                OFFSET_SECONDS,
+                MULTIPLIER,
+            )
+            for seg in edf.seizures
+        ]
+
+        logger.info(f"{len(raw_pre_ictal)} pre-ictal segments generated.")
+
+        # Get an array of epochs for ictal and pre-ictal
+        ictal_epochs = np.concatenate(
+            [
+                get_epochs(seg, edf.sample_rate, EPOCH_DURATION)
+                for seg in raw_seizures_data
+            ]
+        )
+
+        pre_ictal_epochs = np.concatenate(
+            [get_epochs(seg, edf.sample_rate, EPOCH_DURATION) for seg in raw_pre_ictal]
+        )
+
+        if len(pre_ictal_epochs) == 0:
+            logger.warning(f"{record} has no pre-ictal epochs. Skipping...")
+            continue
+        elif len(ictal_epochs) == 0:
+            logger.warning(f"{record} has no ictal epochs. Skipping...")
+            continue
+
+        logger.info(
+            f"{len(ictal_epochs)} ictal epochs of shape {ictal_epochs[0].shape} generated."
+        )
+
+        logger.info(
+            f"{len(pre_ictal_epochs)} pre-ictal epochs of shape {pre_ictal_epochs[0].shape} generated."
+        )
+
+        # Extracting features
+        ictal_features = CovarianceExtractor.extract_all(ictal_epochs)
+        pre_ictal_features = CovarianceExtractor.extract_all(pre_ictal_epochs)
+        logger.info(
+            f"Extracted {len(ictal_features)} ictal features and {len(pre_ictal_features)} pre-ictal features. The shape of each feature is {ictal_features[0].shape}"
+        )
+
+        ictal_labels = np.ones(len(ictal_features))
+        pre_ictal_labels = np.zeros(len(pre_ictal_features))
+
+        features = np.concatenate([ictal_features, pre_ictal_features])
+        labels = np.concatenate([ictal_labels, pre_ictal_labels])
+
+        if out_patient_path.exists():
+            with np.load(out_patient_path) as old_data:
+                old_features = old_data["features"]
+                old_labels = old_data["labels"]
+                features = np.concatenate([old_features, features])
+                labels = np.concatenate([old_labels, labels])
+
+        logger.info(
+            f"Saving features with shape {features.shape} and labels with shape {labels.shape} to '{out_patient_path}'"
+        )
+
+        np.savez_compressed(
+            out_patient_path,
+            features=features,
+            labels=labels,
+        )
+
+    elapsed_time = int(time() - start_time)
+    hh, rest = divmod(elapsed_time, 3600)
+    mm, ss = divmod(rest, 60)
+    logger.info(f"End of data transformation. Elapsed Time: {hh:02d}:{mm:02d}:{ss:02d}")
 
 
 if __name__ == "__main__":

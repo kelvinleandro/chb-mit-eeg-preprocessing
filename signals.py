@@ -1,5 +1,8 @@
 from dataclasses import dataclass
 import numpy as np
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -101,6 +104,7 @@ def get_epochs(
     n_epochs = n_samples // epoch_size
 
     if n_epochs == 0:
+        logger.warning("No epochs found. Returning empty array.")
         return np.empty((0, n_channels, epoch_size), dtype=signal.dtype)
 
     valid_samples = n_epochs * epoch_size
