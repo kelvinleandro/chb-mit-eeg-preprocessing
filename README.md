@@ -85,6 +85,7 @@ The script will:
 - `constants.py`: Configuration for dataset paths and channel selections.
 - `edf.py`: Module for reading EDF files and parsing seizure metadata.
 - `signals.py`: Utility functions for segment extraction and epoching.
+- `train_test_split.py`: Utility to load and split patient data into train/test sets.
 - `feature_extractor/`:
   - `base.py`: Abstract base class for feature extractors.
   - `covariance.py`: Implementation of covariance-based feature extraction.
