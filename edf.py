@@ -19,7 +19,7 @@ class EDF:
             self._load_seizures()
 
     def _read(self) -> None:
-        with read_raw_edf(self.path, preload=False, verbose=0) as raw:
+        with read_raw_edf(self.path, preload=False, verbose=False) as raw:
             self.sample_rate = int(raw.info["sfreq"])
             self.channel_names = raw.ch_names
             if "T8-P8-0" in self.channel_names:
