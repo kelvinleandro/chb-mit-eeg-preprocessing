@@ -1,0 +1,80 @@
+# EEG Preprocessing for CHB-MIT Scalp EEG Database
+
+This project provides a pipeline for preprocessing the **CHB-MIT Scalp EEG database** from [PhysioNet](https://physionet.org/content/chbmit/1.0.0/). It handles EDF file loading, extraction of ictal and pre-ictal segments, epoching, and feature extraction using covariance-based methods.
+
+## Features
+
+- **Segment Extraction:**
+  - **Ictal:** Automatically identifies and extracts seizure segments based on the patient-specific summary files.
+  - **Pre-ictal:** Extracts segments preceding seizures with a configurable offset and duration multiplier.
+- **Epoching:** Splits signal segments into non-overlapping fixed-length epochs (default: 5 seconds).
+- **Feature Extraction:** Implements a `CovarianceExtractor` that computes channel-wise covariance matrices and vectorizes them, preserving the Frobenius norm.
+- **Output:** Saves processed features and labels (`1` for ictal, `0` for pre-ictal) as compressed `.npz` files for each patient in the `out/data/` directory.
+
+## Prerequisites
+
+- Python >= 3.12
+- Dependencies: `mne`, `numpy`
+
+## Installation
+
+You can install the dependencies using `pip` or a package manager like `uv`:
+
+```bash
+pip install mne numpy
+```
+
+Or if you are using `uv`:
+
+```bash
+uv sync
+```
+
+## Dataset Structure
+
+The project expects the CHB-MIT Scalp EEG database to be organized in its original structure as downloaded from PhysioNet. Point the `PATH_ROOT_DATASET` in `constants.py` to this root folder or pass it as a command-line argument.
+
+```text
+chb-mit-scalp-eeg-database/
+├── RECORDS-WITH-SEIZURES
+├── chb01/
+│   ├── chb01-summary.txt
+│   ├── chb01_01.edf
+│   ├── chb01_02.edf
+│   └── ...
+├── chb02/
+│   ├── chb02-summary.txt
+│   ├── chb02_01.edf
+│   └── ...
+└── ...
+```
+
+## Usage
+
+To run the preprocessing pipeline, execute the `main.py` script. You can optionally provide the path to the dataset as an argument:
+
+```bash
+python main.py "path/to/chb-mit-scalp-eeg-database"
+```
+
+If no argument is provided, it will use the default path defined in `constants.py`.
+
+The script will:
+
+1. Read the `RECORDS-WITH-SEIZURES` file.
+2. Process each record by identifying seizure times from summary files.
+3. Extract ictal and pre-ictal segments.
+4. Split segments into 5-second epochs.
+5. Extract covariance features.
+6. Save the results to `out/data/<patient_id>.npz`.
+
+## Project Structure
+
+- `main.py`: Main entry point for the preprocessing pipeline.
+- `constants.py`: Configuration for dataset paths and channel selections.
+- `edf.py`: Module for reading EDF files and parsing seizure metadata.
+- `signals.py`: Utility functions for segment extraction and epoching.
+- `feature_extractor/`:
+  - `base.py`: Abstract base class for feature extractors.
+  - `covariance.py`: Implementation of covariance-based feature extraction.
+- `out/`: Directory where logs and processed data are stored.
