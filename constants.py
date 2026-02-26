@@ -2,9 +2,6 @@ from pathlib import Path
 
 PATH_ROOT_DATASET = Path(r"E:\physionet\chb_mit_scalp_eeg_database")
 
-with open(PATH_ROOT_DATASET / "RECORDS-WITH-SEIZURES", "r") as f:
-    RECORD_WITH_SEIZURES = [line.strip() for line in f.readlines() if line.strip()]
-
 CHANNELS_TO_KEEP = [
     "FP1-F7",
     "F7-T7",

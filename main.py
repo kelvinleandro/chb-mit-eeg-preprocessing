@@ -1,13 +1,13 @@
 import logging
 import os
-import sys
 import warnings
 from datetime import datetime
 from pathlib import Path
 import numpy as np
 from time import time
+from argparse import ArgumentParser
 
-from constants import PATH_ROOT_DATASET, RECORD_WITH_SEIZURES
+from constants import PATH_ROOT_DATASET
 from edf import EDF
 from signals import get_epochs, get_pre_ictal_segment
 from feature_extractor.covariance import CovarianceExtractor
@@ -16,18 +16,49 @@ warnings.filterwarnings(
     "ignore", message="Channel names are not unique*", category=RuntimeWarning
 )
 
-if len(sys.argv) > 1:
-    PATH_ROOT_DATASET = Path(sys.argv[1])
+parser = ArgumentParser(description="EEG Feature Extraction")
+parser.add_argument(
+    "--path",
+    "-p",
+    help="Root directory of the EEG dataset",
+    type=str,
+    default=PATH_ROOT_DATASET,
+)
+parser.add_argument(
+    "--offset_seconds",
+    "-o",
+    help="Time gap (in seconds) between the pre-ictal segment end and the seizure onset (default: %(default)s)",
+    type=int,
+    default=5 * 60,
+)
+parser.add_argument(
+    "--multiplier",
+    "-m",
+    help="Factor to scale the pre-ictal segment duration relative to the seizure length (default: %(default)s)",
+    type=int,
+    default=3,
+)
+parser.add_argument(
+    "--epoch_duration",
+    "-e",
+    help="Duration of each signal epoch in seconds for feature extraction (default: %(default)s)",
+    type=int,
+    default=5,
+)
+
+args = parser.parse_args()
+DATASET_PATH = Path(args.path)
+OFFSET_SECONDS = args.offset_seconds
+MULTIPLIER = args.multiplier
+EPOCH_DURATION = args.epoch_duration
+
+with (DATASET_PATH / "RECORDS-WITH-SEIZURES").open() as f:
+    RECORDS_WITH_SEIZURES = [line.strip() for line in f if line.strip()]
 
 
 os.makedirs("out", exist_ok=True)
 path_data = Path("out/data")
 os.makedirs(path_data, exist_ok=True)
-
-# clean up all .npz files
-for file in path_data.iterdir():
-    if file.suffix == ".npz":
-        os.remove(file)
 
 file_name = datetime.now().strftime("log_%Y-%m-%d.log")
 path_log = os.path.join("out", file_name)
@@ -40,20 +71,19 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-OFFSET_SECONDS = 5 * 60  # 5 min
-MULTIPLIER = 3
-EPOCH_DURATION = 5  # seconds
+# clean up all .npz files
+for file in path_data.iterdir():
+    if file.suffix == ".npz":
+        os.remove(file)
 
 
 def main():
     start_time = time()
-    for record in RECORD_WITH_SEIZURES:
-        # if record != "chb04/chb04_28.edf":
-        #     continue
+    for record in RECORDS_WITH_SEIZURES:
         patient = record.split("/")[0]
         out_patient_path = path_data / f"{patient}.npz"
 
-        path_edf = PATH_ROOT_DATASET / record
+        path_edf = DATASET_PATH / record
 
         if not path_edf.exists():
             logger.warning(f"'{path_edf}' does not exist. Skipping...")

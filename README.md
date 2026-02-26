@@ -51,22 +51,33 @@ chb-mit-scalp-eeg-database/
 
 ## Usage
 
-To run the preprocessing pipeline, execute the `main.py` script. You can optionally provide the path to the dataset as an argument:
+To run the preprocessing pipeline, execute the `main.py` script. The script uses command-line arguments to configure the pipeline:
 
 ```bash
-python main.py "path/to/chb-mit-scalp-eeg-database"
+python main.py [options]
 ```
 
-If no argument is provided, it will use the default path defined in `constants.py`.
+### Available Arguments
+
+- `--path`, `-p`: Root directory of the EEG dataset (default: defined in `constants.py`).
+- `--offset_seconds`, `-o`: Time gap (in seconds) between the pre-ictal segment end and the seizure onset (default: 300).
+- `--multiplier`, `-m`: Factor used to scale the pre-ictal segment duration relative to the seizure length (default: 3).
+- `--epoch_duration`, `-e`: Duration of each signal epoch in seconds for feature extraction (default: 5).
+
+### Example
+
+```bash
+python main.py -p "path/to/dataset" -o 60 -m 5 -e 2
+```
 
 The script will:
 
-1. Read the `RECORDS-WITH-SEIZURES` file.
+1. Read the `RECORDS-WITH-SEIZURES` file from the dataset root.
 2. Process each record by identifying seizure times from summary files.
 3. Extract ictal and pre-ictal segments.
-4. Split segments into 5-second epochs.
-5. Extract covariance features.
-6. Save the results to `out/data/<patient_id>.npz`.
+4. Split segments into fixed-length epochs.
+5. Extract covariance-based features.
+6. Save the results as compressed `.npz` files in `out/data/<patient_id>.npz`.
 
 ## Project Structure
 
