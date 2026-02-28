@@ -39,10 +39,9 @@ class EDF:
             self.data = np.take(raw.get_data(), indices, axis=0)
 
     def _load_seizures(self) -> None:
-        patient = self.path.name.split("_")[0]
-        parent = self.path.parent
-        summary = parent / f"{patient}-summary.txt"
-        with open(summary, "r") as f:
+        parent_folder = self.path.parent
+        summary_path = next(parent_folder.glob("*summary.txt"))
+        with open(summary_path, "r") as f:
             content = f.read()
             _start = content.find(f"File Name: {self.path.name}")
             _end = content.find("File Name", _start + 1)
