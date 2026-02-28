@@ -58,10 +58,11 @@ with (DATASET_PATH / "RECORDS-WITH-SEIZURES").open() as f:
 
 os.makedirs("out", exist_ok=True)
 path_data = Path("out/data")
-os.makedirs(path_data, exist_ok=True)
+path_data.mkdir(exist_ok=True)
+(path_data.parent / "logs").mkdir(exist_ok=True)
 
 file_name = datetime.now().strftime("log_%Y-%m-%d.log")
-path_log = os.path.join("out", file_name)
+path_log = os.path.join("out", "logs", file_name)
 
 logging.basicConfig(
     level=logging.INFO,
