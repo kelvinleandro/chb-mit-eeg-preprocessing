@@ -6,6 +6,7 @@ from pathlib import Path
 import numpy as np
 from time import time
 from argparse import ArgumentParser
+from scipy.io import loadmat, savemat
 
 from constants import PATH_ROOT_DATASET
 from edf import EDF
@@ -45,12 +46,21 @@ parser.add_argument(
     type=int,
     default=5,
 )
+parser.add_argument(
+    "--output_type",
+    "-t",
+    choices=["npz", "mat"],
+    help="Output file type (default: %(default)s)",
+    type=str,
+    default="npz",
+)
 
 args = parser.parse_args()
 DATASET_PATH = Path(args.path)
 OFFSET_SECONDS = args.offset_seconds
 MULTIPLIER = args.multiplier
 EPOCH_DURATION = args.epoch_duration
+OUTPUT_TYPE = args.output_type
 
 with (DATASET_PATH / "RECORDS-WITH-SEIZURES").open() as f:
     RECORDS_WITH_SEIZURES = [line.strip() for line in f if line.strip()]
@@ -72,17 +82,16 @@ logging.basicConfig(
 
 logger = logging.getLogger(__name__)
 
-# clean up all .npz files
+# clean up all files in data folder
 for file in path_data.iterdir():
-    if file.suffix == ".npz":
-        os.remove(file)
+    os.remove(file)
 
 
 def main():
     start_time = time()
     for record in RECORDS_WITH_SEIZURES:
         patient = record.split("/")[0]
-        out_patient_path = path_data / f"{patient}.npz"
+        out_patient_path = path_data / f"{patient}.{OUTPUT_TYPE}"
 
         path_edf = DATASET_PATH / record
 
@@ -160,22 +169,42 @@ def main():
         features = np.concatenate([ictal_features, pre_ictal_features])
         labels = np.concatenate([ictal_labels, pre_ictal_labels])
 
-        if out_patient_path.exists():
-            with np.load(out_patient_path) as old_data:
+        if OUTPUT_TYPE == "npz":
+            if out_patient_path.exists():
+                with np.load(out_patient_path) as old_data:
+                    old_features = old_data["features"]
+                    old_labels = old_data["labels"]
+                    features = np.concatenate([old_features, features])
+                    labels = np.concatenate([old_labels, labels])
+
+            logger.info(
+                f"Saving features with shape {features.shape} and labels with shape {labels.shape} to '{out_patient_path}'"
+            )
+
+            np.savez_compressed(
+                out_patient_path,
+                features=features,
+                labels=labels,
+            )
+        elif OUTPUT_TYPE == "mat":
+            if out_patient_path.exists():
+                old_data = loadmat(out_patient_path)
                 old_features = old_data["features"]
-                old_labels = old_data["labels"]
+                old_labels = np.squeeze(old_data["labels"])
                 features = np.concatenate([old_features, features])
                 labels = np.concatenate([old_labels, labels])
 
-        logger.info(
-            f"Saving features with shape {features.shape} and labels with shape {labels.shape} to '{out_patient_path}'"
-        )
+            logger.info(
+                f"Saving features with shape {features.shape} and labels with shape {labels.shape} to '{out_patient_path}'"
+            )
 
-        np.savez_compressed(
-            out_patient_path,
-            features=features,
-            labels=labels,
-        )
+            savemat(
+                out_patient_path,
+                {
+                    "features": features,
+                    "labels": labels,
+                },
+            )
 
     elapsed_time = int(time() - start_time)
     hh, rest = divmod(elapsed_time, 3600)
